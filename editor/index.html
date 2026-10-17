@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000">
+<title>Carrickfin</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<div id="map"></div>
+
+<!-- Recording bar: only shown while logging a walk -->
+<div id="recbar" hidden>
+  <span class="dot"></span>
+  <span id="rec-stats">0:00 · 0 m</span>
+  <button id="rec-pin" title="Drop a pin here">Pin</button>
+  <button id="rec-pocket" title="Black screen for pocket">Pocket</button>
+  <button id="rec-stop" class="stop">Stop</button>
+</div>
+
+<!-- Floating buttons -->
+<div id="fab">
+  <button id="btn-locate" title="Show my position" aria-label="Show my position">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="8" fill="none"/></svg>
+  </button>
+  <button id="btn-record" title="Record a walk" aria-label="Record a walk">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="fill-rec"/></svg>
+  </button>
+  <button id="btn-pin" title="Drop a pin" aria-label="Drop a pin">
+    <svg viewBox="0 0 24 24"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>
+  </button>
+  <button id="btn-zone" title="Draw a zone" aria-label="Draw a zone">
+    <svg viewBox="0 0 24 24"><path d="M4 7l7-4 9 6-3 11H6z"/></svg>
+  </button>
+  <button id="btn-menu" title="Menu" aria-label="Menu">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+</div>
+
+<!-- Zone shape chooser -->
+<div id="zone-menu" class="popover" hidden>
+  <button data-shape="Polygon">Freehand shape</button>
+  <button data-shape="Circle">Circle</button>
+</div>
+
+<!-- Main menu -->
+<div id="main-menu" class="popover" hidden>
+  <button data-act="import">Import GPX / KML…</button>
+  <button data-act="open">Open piece…</button>
+  <button data-act="save">Save piece (.zip)</button>
+  <hr>
+  <button data-act="home">Frame the strand</button>
+  <button data-act="imagery">Satellite image date…</button>
+  <button data-act="basemap">Switch to street map</button>
+  <button data-act="draw-perimeter">Draw perimeter by hand</button>
+  <button data-act="undo">Undo</button>
+  <hr>
+  <a href="../tools/sensor-test/">Diagnostics (sensor test)</a>
+  <button data-act="new" class="danger">New empty piece</button>
+</div>
+
+<!-- Imagery date picker -->
+<div id="imagery-menu" class="popover" hidden></div>
+
+<!-- Selected item -->
+<aside id="sheet" hidden></aside>
+
+<div id="toast" hidden></div>
+
+<input type="file" id="file-import" accept=".gpx,.kml,application/gpx+xml,application/vnd.google-earth.kml+xml" multiple hidden>
+<input type="file" id="file-open" accept=".zip,.json" hidden>
+<input type="file" id="file-audio" accept="audio/*" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module" src="editor.js"></script>
+</body>
+</html>

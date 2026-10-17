@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000">
+<title>Sensor Test</title>
+<link rel="stylesheet" href="sensor-test.css">
+</head>
+<body>
+<header>
+  <h1>Sensor test</h1>
+  <p class="sub">GPS · compass · keep-alive · drift log</p>
+</header>
+
+<main>
+  <section id="start-card" class="card">
+    <p>Tap Start, then allow <b>location</b> and <b>motion &amp; orientation</b> when asked.
+       Stand still in open sky for a drift test.</p>
+    <label class="row"><input type="checkbox" id="opt-tone" checked> Play quiet test tone (checks audio survives)</label>
+    <label class="row"><input type="checkbox" id="opt-wake" checked> Keep screen awake</label>
+    <button id="btn-start" class="big">Start</button>
+  </section>
+
+  <section class="card" id="gps-card">
+    <h2>GPS</h2>
+    <dl class="grid">
+      <dt>Lat</dt><dd id="lat">–</dd>
+      <dt>Lng</dt><dd id="lng">–</dd>
+      <dt>Accuracy (phone's estimate)</dt><dd id="acc">–</dd>
+      <dt>Altitude</dt><dd id="alt">–</dd>
+      <dt>Speed</dt><dd id="spd">–</dd>
+      <dt>Course (GPS)</dt><dd id="course">–</dd>
+      <dt>Update interval</dt><dd id="rate">–</dd>
+      <dt>Last fix age</dt><dd id="age">–</dd>
+      <dt>Fixes</dt><dd id="nfix">0</dd>
+    </dl>
+  </section>
+
+  <section class="card" id="drift-card">
+    <h2>Drift (measured, around mean position)</h2>
+    <canvas id="scatter" width="600" height="600"></canvas>
+    <p class="legend">Rings at 3, 5, 10 m. Grey = raw fixes, blue = smoothed.</p>
+    <dl class="grid">
+      <dt>Samples</dt><dd id="d-n">–</dd>
+      <dt>Median distance (CEP50)</dt><dd id="d-50">–</dd>
+      <dt>95% within</dt><dd id="d-95">–</dd>
+      <dt>Max</dt><dd id="d-max">–</dd>
+      <dt>Smoothed 95% within</dt><dd id="d-s95">–</dd>
+    </dl>
+    <label class="row">Position smoothing <input type="range" id="pos-smooth" min="0" max="0.95" step="0.05" value="0.3"> <span id="pos-smooth-v">0.30</span></label>
+    <button id="btn-drift-reset">Reset drift</button>
+  </section>
+
+  <section class="card" id="compass-card">
+    <h2>Compass</h2>
+    <div class="dial-wrap"><canvas id="dial" width="400" height="400"></canvas></div>
+    <dl class="grid">
+      <dt>Heading (used)</dt><dd id="hdg">–</dd>
+      <dt>Smoothed</dt><dd id="hdg-s">–</dd>
+      <dt>Top-of-phone</dt><dd id="hdg-top">–</dd>
+      <dt>Back-of-phone</dt><dd id="hdg-cam">–</dd>
+      <dt>Mode</dt><dd id="hdg-mode">–</dd>
+      <dt>Accuracy (iOS)</dt><dd id="hdg-acc">–</dd>
+      <dt>Source</dt><dd id="hdg-src">–</dd>
+      <dt>Events/s</dt><dd id="hdg-rate">–</dd>
+      <dt>α / β / γ</dt><dd id="hdg-raw">–</dd>
+    </dl>
+    <label class="row">Heading smoothing <input type="range" id="hdg-smooth" min="0" max="0.95" step="0.05" value="0.2"> <span id="hdg-smooth-v">0.20</span></label>
+    <div class="row">
+      <button id="btn-target">Set target = current heading</button>
+      <span>Target: <b id="target">none</b></span>
+    </div>
+    <p class="legend">With a target set, the test tone is loudest facing it and drops when you turn away (a first try at directional gain).</p>
+    <p id="calib" class="warn" hidden>Compass looks unreliable: wave the phone in a figure-8 and move away from metal.</p>
+  </section>
+
+  <section class="card" id="alive-card">
+    <h2>Keep-alive</h2>
+    <dl class="grid">
+      <dt>Wake lock</dt><dd id="wake">–</dd>
+      <dt>Audio</dt><dd id="audio">–</dd>
+      <dt>Page visible</dt><dd id="vis">–</dd>
+      <dt>Battery</dt><dd id="bat">–</dd>
+      <dt>Clock offset</dt><dd id="clock">–</dd>
+      <dt>Running for</dt><dd id="uptime">–</dd>
+      <dt>GPS gaps &gt; 5 s</dt><dd id="gaps">0</dd>
+    </dl>
+    <button id="btn-pocket" class="big">Pocket mode</button>
+    <button id="btn-clock">Check clock again</button>
+  </section>
+
+  <section class="card">
+    <h2>Log</h2>
+    <div class="row">
+      <button id="btn-gpx">Export GPX</button>
+      <button id="btn-json">Export JSON</button>
+      <button id="btn-clear">Clear log</button>
+    </div>
+    <label class="row">Label for export <input type="text" id="label" placeholder="e.g. s25-dunes-pocket"></label>
+    <ol id="events"></ol>
+  </section>
+</main>
+
+<script type="module" src="sensor-test.js"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+:root {
+  --panel: rgba(18, 21, 25, 0.92);
+  --text: #eef1f4;
+  --muted: #9aa4ae;
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: #4aa3ff;
+  --perimeter: #ffd23f;
+  --track: #ff8a3d;
+  --zone: #4aa3ff;
+  --rec: #ff4d4d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; color: var(--text);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+#map { position: fixed; inset: 0; background: #0b1a20; }
+
+button { font: inherit; color: var(--text); cursor: pointer; }
+
+/* ---------- floating buttons ---------- */
+#fab {
+  position: fixed; right: 12px; bottom: calc(24px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 10px; z-index: 900;
+}
+#fab button {
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel); display: grid; place-items: center; padding: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+#fab button.on { background: var(--accent); }
+#fab svg { width: 24px; height: 24px; fill: none; stroke: var(--text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#fab .fill-rec { fill: var(--rec); stroke: none; }
+
+/* ---------- popovers ---------- */
+.popover {
+  position: fixed; right: 70px; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 950;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
+  min-width: 220px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  display: flex; flex-direction: column;
+}
+.popover[hidden] { display: none; }
+.popover button, .popover a {
+  background: none; border: 0; text-align: left; padding: 11px 12px; border-radius: 8px;
+  color: var(--text); text-decoration: none; font-size: 15px;
+}
+.popover button:hover, .popover a:hover { background: rgba(255,255,255,.08); }
+.popover hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+.popover .danger { color: #ff8a8a; }
+#zone-menu { bottom: calc(82px + env(safe-area-inset-bottom)); }
+
+/* ---------- recording bar ---------- */
+#recbar {
+  position: fixed; left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top));
+  z-index: 950; background: var(--panel); border: 1px solid var(--line); border-radius: 24px;
+  padding: 6px 6px 6px 14px; display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  max-width: calc(100vw - 24px);
+}
+#recbar[hidden] { display: none; }
+#recbar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+#rec-stats { font-variant-numeric: tabular-nums; margin-right: 4px; }
+#recbar button { background: rgba(255,255,255,.1); border: 0; border-radius: 16px; padding: 7px 12px; }
+#recbar button.stop { background: var(--rec); }
+
+/* ---------- selected-item sheet ---------- */
+#sheet {
+  position: fixed; z-index: 960; background: var(--panel); border: 1px solid var(--line);
+  left: 0; right: 0; bottom: 0; max-height: 55vh; overflow-y: auto;
+  border-radius: 16px 16px 0 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+  backdrop-filter: blur(6px);
+}
+#sheet[hidden] { display: none; }
+@media (min-width: 800px) {
+  #sheet { left: auto; top: 12px; right: 72px; bottom: auto; width: 340px; max-height: calc(100vh - 24px); border-radius: 14px; }
+}
+#sheet header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+#sheet .kind { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#sheet .close { margin-left: auto; background: none; border: 0; font-size: 22px; line-height: 1; padding: 4px 8px; color: var(--muted); }
+#sheet input[type=text] {
+  width: 100%; font: inherit; font-size: 18px; color: var(--text); background: rgba(255,255,255,.06);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; margin-bottom: 10px;
+}
+#sheet .info { color: var(--muted); font-size: 14px; margin: 4px 0 12px; font-variant-numeric: tabular-nums; }
+#sheet .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#sheet .actions button {
+  background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
+}
+#sheet .actions button.primary { background: var(--accent); border-color: var(--accent); color: #001428; font-weight: 600; }
+#sheet .actions button.danger { color: #ff8a8a; margin-left: auto; }
+#sheet .audio { border-top: 1px solid var(--line); padding-top: 12px; margin: 12px 0; }
+#sheet .audio .name { font-weight: 600; word-break: break-all; }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom));
+  z-index: 1001; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; display: flex; gap: 12px; align-items: center; max-width: calc(100vw - 90px);
+}
+#toast[hidden] { display: none; }
+#toast button { background: none; border: 0; color: var(--accent); font-weight: 600; padding: 0; }
+
+/* ---------- map items ---------- */
+.pin-icon { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid #e2405c; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
+.pin-icon.selected { border-color: var(--accent); transform: scale(1.3); }
+.leaflet-tooltip.map-label {
+  background: rgba(0,0,0,.6); color: #fff; border: 0; box-shadow: none; font-size: 12px; padding: 2px 6px;
+}
+.leaflet-tooltip.map-label::before { display: none; }
+.me-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(74,163,255,.4); }
+.leaflet-control-attribution { font-size: 10px; background: rgba(0,0,0,.45) !important; color: #ccc; }
+.leaflet-control-attribution a { color: #ddd; }
+.leaflet-control-scale-line { background: rgba(0,0,0,.45); color: #fff; border-color: #fff; }
+
+/* Pocket mode (shared/keepalive.js) */
+.pocket-overlay {
+  position: fixed; inset: 0; background: #000; z-index: 2000;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.pocket-hint { color: #444; font-size: 15px; transition: opacity 1.5s; }
+.pocket-overlay.settled .pocket-hint { opacity: 0; }
+
