@@ -4,6 +4,7 @@
 
 import { makeLocalFrame, simplify, pathLengthM, polygonAreaM2, haversineM, distToSegment } from '../shared/geo.js';
 import { WakeLock, PocketMode } from '../shared/keepalive.js';
+import { Mixer } from '../shared/mixer.js';
 import { store, audioStore, newId } from './store.js';
 import { importTrackFile, savePiece, openPiece, trackToGpx, download } from './io.js';
 
@@ -88,6 +89,7 @@ function setImagery(rel) {
   if (basemap === satellite) { map.removeLayer(satellite); next.addTo(map); basemap = next; }
   satellite = next;
 }
+window.__editorMap = map;   // handle for automated tests in the console
 L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
 map.pm.setGlobalOptions({ snappable: false, allowSelfIntersection: false });
 
@@ -132,7 +134,11 @@ function render() {
 
 function add(id, layer, label) {
   if (label) layer.bindTooltip(label, { permanent: true, direction: 'top', className: 'map-label', offset: [0, -8] });
-  layer.on('click', (e) => { L.DomEvent.stopPropagation(e); if (!drawing && !placingPin) select(id); });
+  layer.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    if (listening && !drawing) { standAt(e.latlng); return; }
+    if (!drawing && !placingPin) select(id);
+  });
   layer.addTo(overlays);
   layerById.set(id, layer);
 }
@@ -140,6 +146,7 @@ function add(id, layer, label) {
 function getVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 store.onChange(render);
+store.onChange(() => { if (listening) syncMixer(); });
 
 // ---------- selection + editing on the map ----------
 function select(id) {
@@ -192,6 +199,7 @@ function updateShape(id, layer) {
 
 map.on('click', (e) => {
   if (placingPin) { placingPin = false; addPin(e.latlng.lat, e.latlng.lng, null); return; }
+  if (listening && !drawing) { closePopovers(); standAt(e.latlng); return; }
   if (!drawing) deselect();
   closePopovers();
 });
@@ -540,6 +548,7 @@ let previewing = null, previewEl = null;
 async function togglePreview(zone) {
   if (previewing === zone.id) { stopPreview(); renderSheet(); return; }
   stopPreview();
+  stopListening();
   const rec = await audioStore.get(zone.audio.id);
   if (!rec) { toast('Audio file missing from this browser. Add it again.'); return; }
   previewEl = new Audio(URL.createObjectURL(rec.blob));
@@ -552,6 +561,80 @@ function stopPreview() {
   if (previewEl) { previewEl.pause(); URL.revokeObjectURL(previewEl.src); previewEl = null; }
   previewing = null;
 }
+
+// ---------- listening: audition the mix with the mouse ----------
+// Click the map to stand there and hear what a walker would hear; drag the
+// figure to walk between zones. Same mixer the phone player will use.
+const EPOCH_MS = Date.parse('2026-01-01T00:00:00Z');
+let listening = null;          // { mixer, marker }
+
+async function startListening() {
+  stopPreview();
+  closePopovers();
+  deselect();
+  const mixer = new Mixer({ epochMs: EPOCH_MS, featherM: 10 });
+  listening = { mixer, marker: null };
+  await mixer.start();
+  document.body.classList.add('listening');
+  $('btn-listen').classList.add('on');
+  $('listenbar').hidden = false;
+  $('listen-stats').textContent = 'Click the map to stand there';
+  const failed = await syncMixer();
+  if (!store.state.zones.some(z => z.audio)) toast('No zones have audio yet. Add some to hear anything.');
+  else if (failed.length) toast(`Couldn't load audio for: ${failed.join(', ')}`);
+}
+
+function syncMixer() {
+  if (!listening) return [];
+  const s = store.state;
+  return listening.mixer.setPiece({
+    perimeter: s.perimeter,
+    zones: s.zones.map(z => ({
+      id: z.id, name: z.name, shape: z.shape, audioKey: z.audio?.id || null,
+      getBlob: async () => (await audioStore.get(z.audio.id))?.blob,
+    })),
+  }).then(failed => { if (listening?.marker) showLevels(listening.mixer.setPosition(...latLngOf(listening.marker))); return failed; });
+}
+
+const latLngOf = (m) => { const ll = m.getLatLng(); return [ll.lat, ll.lng]; };
+
+function standAt(ll) {
+  if (!listening) return;
+  if (!listening.marker) {
+    listening.marker = L.marker(ll, { draggable: true, zIndexOffset: 2000, title: 'Drag to walk',
+      icon: L.divIcon({ className: '', html: '<div class="listener-icon"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }) }).addTo(map);
+    listening.marker.on('drag', () => showLevels(listening.mixer.setPosition(...latLngOf(listening.marker))));
+  } else listening.marker.setLatLng(ll);
+  showLevels(listening.mixer.setPosition(ll.lat, ll.lng));
+}
+
+function showLevels(levels) {
+  const m = listening.mixer;
+  const audible = levels.filter(l => l.level > 0.001);
+  $('listen-stats').textContent = !m.inPerimeter ? 'Outside the perimeter: silence'
+    : audible.length ? `Hearing ${audible.length} zone${audible.length === 1 ? '' : 's'} · drag to walk`
+    : 'Silence here · drag to walk';
+  const box = $('listen-levels');
+  const rows = levels.filter(l => l.hasAudio && l.depthM > -30);   // zones you're in or close to
+  box.hidden = !rows.length;
+  box.innerHTML = rows.map(l => `<div class="row${l.level > 0.001 ? '' : ' silent'}">
+      <span class="bar"><i style="width:${Math.round(l.level * 100)}%"></i></span>
+      <span class="name">${esc(l.name)}${l.level > 0.001 ? '' : ` · ${Math.round(-l.depthM)} m away`}</span></div>`).join('');
+}
+
+function stopListening() {
+  if (!listening) return;
+  listening.mixer.stop();
+  if (listening.marker) map.removeLayer(listening.marker);
+  listening = null;
+  document.body.classList.remove('listening');
+  $('btn-listen').classList.remove('on');
+  $('listenbar').hidden = true;
+  $('listen-levels').hidden = true;
+}
+
+$('btn-listen').addEventListener('click', () => listening ? stopListening() : startListening());
+$('listen-stop').addEventListener('click', stopListening);
 
 // ---------- menus ----------
 function closePopovers() { $('main-menu').hidden = true; $('zone-menu').hidden = true; $('imagery-menu').hidden = true; }
@@ -676,6 +759,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); store.undo(); }
   else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) { e.preventDefault(); deleteSelected(); }
   else if (e.key === 'Escape') {
+    if (!drawing && !placingPin && !selectedId) stopListening();
     if (drawing) { map.pm.disableDraw(); drawing = null; hideToast(); }
     placingPin = false; closePopovers(); deselect();
   }

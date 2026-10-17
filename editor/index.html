@@ -21,6 +21,14 @@
   <button id="rec-stop" class="stop">Stop</button>
 </div>
 
+<!-- Listening bar: only shown while auditioning the mix with the mouse -->
+<div id="listenbar" hidden>
+  <svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
+  <span id="listen-stats">Click the map to stand there</span>
+  <button id="listen-stop" class="stop">Stop</button>
+</div>
+<div id="listen-levels" hidden></div>
+
 <!-- Floating buttons -->
 <div id="fab">
   <button id="btn-locate" title="Show my position" aria-label="Show my position">
@@ -28,6 +36,9 @@
   </button>
   <button id="btn-record" title="Record a walk" aria-label="Record a walk">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" class="fill-rec"/></svg>
+  </button>
+  <button id="btn-listen" title="Listen: click the map to stand there" aria-label="Listen">
+    <svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
   </button>
   <button id="btn-pin" title="Drop a pin" aria-label="Drop a pin">
     <svg viewBox="0 0 24 24"><path d="M12 22s7-7.5 7-13a7 7 0 0 0-14 0c0 5.5 7 13 7 13z"/><circle cx="12" cy="9" r="2.5"/></svg>

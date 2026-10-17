@@ -61,6 +61,31 @@ button { font: inherit; color: var(--text); cursor: pointer; }
 #recbar button { background: rgba(255,255,255,.1); border: 0; border-radius: 16px; padding: 7px 12px; }
 #recbar button.stop { background: var(--rec); }
 
+/* ---------- listening (audition) ---------- */
+#listenbar {
+  position: fixed; left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top));
+  z-index: 950; background: var(--panel); border: 1px solid var(--line); border-radius: 24px;
+  padding: 6px 6px 6px 12px; display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  max-width: calc(100vw - 24px);
+}
+#listenbar[hidden], #listen-levels[hidden] { display: none; }
+#listenbar svg { width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2; flex: none; }
+#listen-stats { overflow: hidden; text-overflow: ellipsis; }
+#listenbar button { background: var(--accent); border: 0; border-radius: 16px; padding: 7px 12px; }
+#listen-levels {
+  position: fixed; left: 12px; top: calc(64px + env(safe-area-inset-top)); z-index: 940;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px;
+  min-width: 180px; max-width: calc(100vw - 90px); font-size: 13px;
+}
+#listen-levels .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+#listen-levels .row.silent { color: var(--muted); }
+#listen-levels .bar { flex: none; width: 60px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+#listen-levels .bar i { display: block; height: 100%; background: var(--accent); }
+#listen-levels .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.listener-icon { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid var(--accent);
+  box-shadow: 0 0 0 6px rgba(74,163,255,.25), 0 1px 4px rgba(0,0,0,.6); cursor: grab; }
+.listening #map { cursor: crosshair; }
+
 /* ---------- selected-item sheet ---------- */
 #sheet {
   position: fixed; z-index: 960; background: var(--panel); border: 1px solid var(--line);
