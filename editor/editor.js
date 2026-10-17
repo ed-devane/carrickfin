@@ -2,7 +2,7 @@
 // perimeter, pins and zones on top. Works on the phone (record a walk, drop
 // pins where you stand) and on the desktop (draw zones, attach audio).
 
-import { makeLocalFrame, simplify, pathLengthM, polygonAreaM2, haversineM } from '../shared/geo.js';
+import { makeLocalFrame, simplify, pathLengthM, polygonAreaM2, haversineM, distToSegment } from '../shared/geo.js';
 import { WakeLock, PocketMode } from '../shared/keepalive.js';
 import { store, audioStore, newId } from './store.js';
 import { importTrackFile, savePiece, openPiece, trackToGpx, download } from './io.js';
@@ -249,21 +249,46 @@ function onFix(pos) {
   recentFixes.push(lastFix);
   while (recentFixes.length && lastFix.t - recentFixes[0].t > 15000) recentFixes.shift();
 
+  // Away from the beach (or a laptop guessing its position from Wi-Fi), don't
+  // draw the dot — its accuracy circle can be kilometres wide and would
+  // smother the map — and never move the map.
+  const near = nearStrand(lastFix);
   const ll = [c.latitude, c.longitude];
-  if (!meMarker) {
-    meAccuracy = L.circle(ll, { radius: c.accuracy, color: '#4aa3ff', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
-    meMarker = L.marker(ll, { interactive: false, zIndexOffset: 1000,
-      icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
-  } else {
-    meMarker.setLatLng(ll); meAccuracy.setLatLng(ll); meAccuracy.setRadius(c.accuracy);
+  if (near) {
+    if (!meMarker) {
+      meAccuracy = L.circle(ll, { radius: c.accuracy, color: '#4aa3ff', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
+      meMarker = L.marker(ll, { interactive: false, zIndexOffset: 1000,
+        icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
+    } else {
+      meMarker.setLatLng(ll); meAccuracy.setLatLng(ll); meAccuracy.setRadius(c.accuracy);
+    }
+  } else if (meMarker) {
+    map.removeLayer(meMarker); map.removeLayer(meAccuracy);
+    meMarker = meAccuracy = null;
   }
-  if (followMe) { map.panTo(ll); followMe = false; }
+  if (followMe) { followMe = false; goToMe(lastFix); }
   if (recording) onRecordFix(lastFix);
+}
+
+// "At the beach" = within 500 m of the line along the strand.
+const NEAR_STRAND_M = 500;
+function distanceFromStrandM(f) {
+  const frame = makeLocalFrame(HOME.south[0], HOME.south[1]);
+  return distToSegment(frame.toXY(f.lat, f.lng), [0, 0], frame.toXY(HOME.north[0], HOME.north[1]));
+}
+function nearStrand(f) { return distanceFromStrandM(f) <= NEAR_STRAND_M; }
+
+function goToMe(f) {
+  if (nearStrand(f)) map.panTo([f.lat, f.lng]);
+  else {
+    const d = distanceFromStrandM(f);
+    toast(`GPS puts you ${d >= 10000 ? Math.round(d / 1000) + ' km' : fmtM(d)} from the strand, so the map stays put`);
+  }
 }
 
 $('btn-locate').addEventListener('click', () => {
   startGps();
-  if (lastFix) map.panTo([lastFix.lat, lastFix.lng]);
+  if (lastFix) goToMe(lastFix);
   else { followMe = true; toast('Finding your position…'); }
 });
 
