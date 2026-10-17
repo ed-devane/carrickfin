@@ -12,32 +12,54 @@ const $ = (id) => document.getElementById(id);
 // ---------- map ----------
 // Carrickfin Atlantic strand, west of (and parallel to) the airport runway.
 //
-// The map is turned so the runway runs left–right along the bottom of the
-// screen, with the sea at the top: south rocks on the left, the north end of
-// the runway on the right. The runway's true bearing is ~20°, so "up" on
-// screen is 20° − 90° = 290° (WNW, out to sea).
+// The map is turned so the strand runs along the long side of the screen:
+//
+//   landscape: runway along the bottom, sea at the top, south rocks on the
+//              left, north end of the runway on the right.
+//              "Up" on screen = runway bearing − 90° (WNW, out to sea).
+//   portrait:  the same picture turned a quarter turn: runway down the right,
+//              sea on the left, north end at the top.
+//              "Up" on screen = runway bearing (NNE).
+//
+// The runway's true bearing is ~20°.
 const RUNWAY_BEARING = 20;
-const VIEW_UP = (RUNWAY_BEARING + 270) % 360;
+const isPortrait = () => window.innerHeight > window.innerWidth;
+const viewUp = () => isPortrait() ? RUNWAY_BEARING : (RUNWAY_BEARING + 270) % 360;
 const HOME = {
-  west: [55.0381, -8.3502],   // rocks at the south end of the strand
-  east: [55.0505, -8.3431],   // beach level with the north end of the runway
+  south: [55.0381, -8.3502],  // rocks at the south end of the strand
+  north: [55.0505, -8.3431],  // beach level with the north end of the runway
 };
 
+// leaflet-rotate's bearing turns the map the opposite way to "which compass
+// direction is up", hence 360 − up.
 const map = L.map('map', {
   zoomControl: false, maxZoom: 21, zoomSnap: 0.25, tap: false,
-  rotate: true, bearing: 360 - VIEW_UP, touchRotate: false, shiftKeyRotate: false, rotateControl: false,
+  rotate: true, bearing: 360 - viewUp(), touchRotate: false, shiftKeyRotate: false, rotateControl: false,
 });
 
-// Fit the strand across the full width of the screen (fitBounds doesn't
+// Fit the strand along the long side of the screen (fitBounds doesn't
 // understand a rotated map, so we work out the zoom from metres per pixel).
 function goHome() {
-  const [a, b] = [L.latLng(HOME.west), L.latLng(HOME.east)];
+  map.setBearing(360 - viewUp());
+  const [a, b] = [L.latLng(HOME.south), L.latLng(HOME.north)];
   const centre = L.latLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
   const lengthM = a.distanceTo(b) * 1.08;                       // a little margin
-  const widthPx = map.getSize().x;
+  const size = map.getSize();
+  const longSidePx = Math.max(size.x, size.y);
   const mPerPxAtZ0 = 156543.03 * Math.cos(centre.lat * Math.PI / 180);
-  map.setView(centre, Math.log2(mPerPxAtZ0 * widthPx / lengthM));
+  map.setView(centre, Math.log2(mPerPxAtZ0 * longSidePx / lengthM));
 }
+
+// Turning the phone: swap between the two layouts, keep looking at the same spot.
+let wasPortrait = isPortrait();
+window.addEventListener('resize', () => {
+  if (isPortrait() === wasPortrait) return;
+  wasPortrait = isPortrait();
+  const centre = map.getCenter();
+  map.invalidateSize();
+  map.setBearing(360 - viewUp());
+  map.setView(centre, map.getZoom(), { animate: false });
+});
 
 // Satellite imagery: Esri's current mosaic mixes captures from different
 // tides along the strand, so we use dated versions from the Esri Wayback
