@@ -6,7 +6,8 @@
 //
 // State shape:
 //   title       string
-//   perimeter   [[lng, lat], ...] ring, or null
+//   perimeters  { low, high }: each a [[lng, lat], ...] ring, or null.
+//               Outside the line for the current tide the piece is silent.
 //   tracks      [{ id, name, points: [[lng, lat, tMs, accM], ...] }]
 //   pins        [{ id, name, lng, lat, accM, t }]
 //   zones       [{ id, name, shape, audio: { id, name, durationSec } | null }]
@@ -48,7 +49,16 @@ export const audioStore = {
 };
 
 export function emptyState() {
-  return { title: 'Untitled piece', perimeter: null, tracks: [], pins: [], zones: [] };
+  return { title: 'Untitled piece', perimeters: { low: null, high: null }, tracks: [], pins: [], zones: [] };
+}
+
+// Older saves had one `perimeter`, walked for low tide.
+function upgrade(s) {
+  if ('perimeter' in s) {
+    s.perimeters = { low: s.perimeter, high: null };
+    delete s.perimeter;
+  }
+  return s;
 }
 
 export function newId(prefix) {
@@ -64,7 +74,7 @@ export const store = {
   async load() {
     try {
       const s = await tx('kv', 'readonly', st => st.get('state'));
-      if (s) this.state = { ...emptyState(), ...s };
+      if (s) this.state = upgrade({ ...emptyState(), ...s });
     } catch (e) { console.warn('Could not load saved state', e); }
   },
 
@@ -82,7 +92,7 @@ export const store = {
   undo() {
     const prev = this.undoStack.pop();
     if (!prev) return false;
-    this.state = JSON.parse(prev);
+    this.state = upgrade(JSON.parse(prev));
     this.save();
     this.listeners.forEach(l => l());
     return true;
@@ -111,7 +121,10 @@ export const store = {
 
   find(id) {
     const s = this.state;
-    if (id === 'perimeter') return s.perimeter ? { kind: 'perimeter' } : null;
+    if (id?.startsWith('perimeter-')) {
+      const tide = id.slice(10);
+      return s.perimeters[tide] ? { kind: 'perimeter', tide } : null;
+    }
     for (const kind of ['tracks', 'pins', 'zones']) {
       const item = s[kind].find(x => x.id === id);
       if (item) return { kind: kind.slice(0, -1), item };

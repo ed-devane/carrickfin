@@ -4,7 +4,8 @@
   --muted: #9aa4ae;
   --line: rgba(255, 255, 255, 0.12);
   --accent: #4aa3ff;
-  --perimeter: #ffd23f;
+  --perimeter: #ffd23f;       /* low-tide line */
+  --high-tide: #3fe0c5;
   --track: #ff8a3d;
   --zone: #4aa3ff;
   --rec: #ff4d4d;
@@ -72,6 +73,7 @@ button { font: inherit; color: var(--text); cursor: pointer; }
 #listenbar svg { width: 18px; height: 18px; fill: none; stroke: var(--accent); stroke-width: 2; flex: none; }
 #listen-stats { overflow: hidden; text-overflow: ellipsis; }
 #listenbar button { background: var(--accent); border: 0; border-radius: 16px; padding: 7px 12px; }
+#listenbar button.tide { background: rgba(255,255,255,.1); }
 #listen-levels {
   position: fixed; left: 12px; top: calc(64px + env(safe-area-inset-top)); z-index: 940;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px;

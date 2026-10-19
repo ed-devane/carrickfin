@@ -25,6 +25,7 @@
 <div id="listenbar" hidden>
   <svg viewBox="0 0 24 24"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="7" rx="1.5"/><rect x="17" y="14" width="4" height="7" rx="1.5"/></svg>
   <span id="listen-stats">Click the map to stand there</span>
+  <button id="listen-tide" class="tide" title="Switch tide">Low tide</button>
   <button id="listen-stop" class="stop">Stop</button>
 </div>
 <div id="listen-levels" hidden></div>
@@ -66,7 +67,8 @@
   <button data-act="home">Frame the strand</button>
   <button data-act="imagery">Satellite image date…</button>
   <button data-act="basemap">Switch to street map</button>
-  <button data-act="draw-perimeter">Draw perimeter by hand</button>
+  <button data-act="draw-low">Draw low-tide line by hand</button>
+  <button data-act="draw-high">Draw high-tide line by hand</button>
   <button data-act="undo">Undo</button>
   <hr>
   <a href="../tools/sensor-test/">Diagnostics (sensor test)</a>

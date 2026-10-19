@@ -100,13 +100,17 @@ const open = (ring) => {
   const a = ring[0], b = ring[ring.length - 1];
   return (ring.length > 1 && a[0] === b[0] && a[1] === b[1]) ? ring.slice(0, -1) : ring;
 };
+const boundaryOf = (ring) => ring ? { type: 'Polygon', coordinates: [close(ring)] } : null;
+const ringOf = (b) => b ? open(b.coordinates[0]) : null;
 const safeName = (s) => s.replace(/[^\w.-]+/g, '_');
 
 export function stateToPiece(state) {
   return {
     title: { en: state.title, ga: '' },
     epoch: '2026-01-01T00:00:00Z',
-    boundary: state.perimeter ? { type: 'Polygon', coordinates: [close(state.perimeter)] } : null,
+    // `boundary` is the outer (low-tide) line; `tideBoundaries` has both.
+    boundary: boundaryOf(state.perimeters.low || state.perimeters.high),
+    tideBoundaries: { low: boundaryOf(state.perimeters.low), high: boundaryOf(state.perimeters.high) },
     settings: { positionSmoothing: 0.3, headingSmoothing: 0.2 },
     zones: state.zones.map(z => ({
       id: z.id,
@@ -127,7 +131,9 @@ export function stateToPiece(state) {
 export function pieceToState(piece) {
   return {
     title: piece.title?.en || 'Untitled piece',
-    perimeter: piece.boundary ? open(piece.boundary.coordinates[0]) : null,
+    perimeters: piece.tideBoundaries
+      ? { low: ringOf(piece.tideBoundaries.low), high: ringOf(piece.tideBoundaries.high) }
+      : { low: ringOf(piece.boundary), high: null },
     tracks: piece.editor?.tracks || [],
     pins: piece.editor?.pins || [],
     zones: (piece.zones || []).map(z => ({

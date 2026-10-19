@@ -100,6 +100,12 @@ let selectedId = null;
 const toLL = ([lng, lat]) => [lat, lng];
 const fromLL = (ll) => [ll.lng, ll.lat];
 
+// Two perimeters: where the walkable strand ends at low tide and at high tide.
+const TIDES = { low: 'Low tide', high: 'High tide' };
+const perimId = (tide) => 'perimeter-' + tide;
+const tideOf = (id) => id?.startsWith('perimeter-') ? id.slice(10) : null;
+const otherTide = (tide) => tide === 'low' ? 'high' : 'low';
+
 // ---------- rendering ----------
 function render() {
   overlays.clearLayers();
@@ -110,11 +116,16 @@ function render() {
     const line = L.polyline(t.points.map(toLL), { color: getVar('--track'), weight: 2, opacity: 0.8 });
     add(t.id, line, t.name);
   }
-  if (s.perimeter) {
-    const poly = L.polygon(s.perimeter.map(toLL), {
-      color: getVar('--perimeter'), weight: 3, dashArray: '8 6', fillOpacity: 0.04,
+  for (const tide of ['low', 'high']) {
+    const ring = s.perimeters[tide];
+    if (!ring) continue;
+    const poly = L.polygon(ring.map(toLL), {
+      color: getVar(tide === 'low' ? '--perimeter' : '--high-tide'), weight: 3, dashArray: '8 6', fillOpacity: 0.04,
     });
-    add('perimeter', poly, null);
+    // The high-tide line usually sits inside the low one, so labels go above / below.
+    poly.bindTooltip(TIDES[tide], { permanent: true, direction: tide === 'high' ? 'top' : 'bottom',
+      className: 'map-label', offset: [0, tide === 'high' ? -8 : 8] });
+    add(perimId(tide), poly, null);
   }
   for (const z of s.zones) {
     const style = { color: getVar('--zone'), weight: 2, fillOpacity: 0.2 };
@@ -171,14 +182,14 @@ function applySelection() {
       layer.off('dragend');
       if (on) layer.on('dragend', () => updatePin(id, layer.getLatLng()));
     } else if (layer.pm) {
-      if (on && (id === 'perimeter' || id.startsWith('z'))) {
+      if (on && (tideOf(id) || id.startsWith('z'))) {
         layer.pm.enable({ draggable: true, allowSelfIntersection: false });
         layer.off('pm:edit pm:dragend');
         layer.on('pm:edit pm:dragend', () => updateShape(id, layer));
       } else if (layer.pm.enabled()) {
         layer.pm.disable();
       }
-      if (layer.setStyle && !(layer instanceof L.Marker)) layer.setStyle({ weight: on ? 4 : (id === 'perimeter' ? 3 : 2) });
+      if (layer.setStyle && !(layer instanceof L.Marker)) layer.setStyle({ weight: on ? 4 : (tideOf(id) ? 3 : 2) });
     }
   }
   if (selectedId && !layerById.has(selectedId)) { selectedId = null; $('sheet').hidden = true; }
@@ -190,7 +201,8 @@ function updatePin(id, ll) {
 
 function updateShape(id, layer) {
   store.change(s => {
-    if (id === 'perimeter') { s.perimeter = layer.getLatLngs()[0].map(fromLL); return; }
+    const tide = tideOf(id);
+    if (tide) { s.perimeters[tide] = layer.getLatLngs()[0].map(fromLL); return; }
     const z = s.zones.find(x => x.id === id);
     if (layer instanceof L.Circle) z.shape = { type: 'Circle', center: fromLL(layer.getLatLng()), radiusM: layer.getRadius() };
     else z.shape = { type: 'Polygon', ring: layer.getLatLngs()[0].map(fromLL) };
@@ -205,7 +217,7 @@ map.on('click', (e) => {
 });
 
 // ---------- drawing zones / perimeter ----------
-let drawing = null; // 'zone' | 'perimeter' | null
+let drawing = null; // 'zone' | 'perimeter-low' | 'perimeter-high' | null
 
 function startDraw(shape, purpose) {
   closePopovers();
@@ -221,9 +233,10 @@ map.on('pm:create', (e) => {
   const purpose = drawing;
   drawing = null;
   hideToast();
-  if (purpose === 'perimeter') {
-    store.change(s => { s.perimeter = layer.getLatLngs()[0].map(fromLL); });
-    select('perimeter');
+  const tide = tideOf(purpose);
+  if (tide) {
+    store.change(s => { s.perimeters[tide] = layer.getLatLngs()[0].map(fromLL); });
+    select(perimId(tide));
     return;
   }
   const id = newId('z');
@@ -412,17 +425,21 @@ function renderSheet() {
   const sheet = $('sheet');
   const found = store.find(selectedId);
   if (!found) { sheet.hidden = true; return; }
-  const { kind, item } = found;
+  const { kind, item, tide } = found;
   let html = '';
   const head = (label) => `<header><span class="kind">${label}</span><button class="close" data-a="close" aria-label="Close">×</button></header>`;
   const nameField = (v) => `<input type="text" data-a="name" value="${esc(v)}" placeholder="Name">`;
 
   if (kind === 'perimeter') {
-    const ring = store.state.perimeter;
-    html = head('Perimeter') +
+    const ring = store.state.perimeters[tide];
+    const other = otherTide(tide);
+    html = head(TIDES[tide] + ' line') +
       `<div class="info">${fmtArea(polygonAreaM2(localXY(ring)))} · ${ring.length} corners<br>
-       Outside this line the piece is silent. Drag corners to adjust.</div>
-       <div class="actions"><button data-a="delete" class="danger">Delete</button></div>`;
+       At ${tide} tide the piece is silent outside this line. Drag corners to adjust.</div>
+       <div class="actions">
+         <button data-a="swap-tide">${store.state.perimeters[other] ? `Swap with the ${other}-tide line` : `Make it the ${other}-tide line`}</button>
+         <button data-a="delete" class="danger">Delete</button>
+       </div>`;
   } else if (kind === 'track') {
     const t = item;
     const dur = t.points.length > 1 && t.points[0][2] ? (t.points.at(-1)[2] - t.points[0][2]) / 1000 : null;
@@ -431,7 +448,8 @@ function renderSheet() {
     html = head('Walk') + nameField(t.name) +
       `<div class="info">${fmtM(trackLengthM(t))}${dur ? ' · ' + fmtDur(dur) : ''} · ${t.points.length} points${medAcc != null ? ` · typical ±${medAcc.toFixed(0)} m` : ''}</div>
        <div class="actions">
-         <button data-a="to-perimeter" class="primary">Use as perimeter</button>
+         <button data-a="to-low" class="primary">Use as low-tide line</button>
+         <button data-a="to-high" class="primary">Use as high-tide line</button>
          <button data-a="gpx">Export GPX</button>
          <button data-a="delete" class="danger">Delete</button>
        </div>`;
@@ -473,7 +491,11 @@ $('sheet').addEventListener('click', async (e) => {
 
   if (a === 'close') deselect();
   else if (a === 'delete') deleteSelected();
-  else if (a === 'to-perimeter') trackToPerimeter(found.item);
+  else if (a === 'to-low' || a === 'to-high') trackToPerimeter(found.item, a.slice(3));
+  else if (a === 'swap-tide') {
+    store.change(s => { const p = s.perimeters; [p.low, p.high] = [p.high, p.low]; });
+    select(perimId(otherTide(found.tide)));
+  }
   else if (a === 'gpx') download(found.item.name.replace(/[^\w-]+/g, '_') + '.gpx', trackToGpx(found.item, store.state.pins), 'application/gpx+xml');
   else if (a === 'audio') $('file-audio').click();
   else if (a === 'audio-remove') { stopPreview(); store.change(s => { found.item.audio = null; }); renderSheet(); }
@@ -485,17 +507,17 @@ function deleteSelected() {
   if (!found) return;
   const id = selectedId;
   store.change(s => {
-    if (found.kind === 'perimeter') s.perimeter = null;
+    if (found.kind === 'perimeter') s.perimeters[found.tide] = null;
     else s[found.kind + 's'] = s[found.kind + 's'].filter(x => x.id !== id);
   });
   deselect();
   toast('Deleted', { action: 'Undo', onAction: () => store.undo() });
 }
 
-// Turn a walked track into the perimeter: drop poor fixes, average each
+// Turn a walked track into a tide line: drop poor fixes, average each
 // point with its neighbours (±3 points ≈ ±3 s of walking) to take out GPS
 // wobble, then remove points within 4 m of a straight line, close the loop.
-function trackToPerimeter(track) {
+function trackToPerimeter(track, tide) {
   const pts = track.points.filter(p => p[3] == null || p[3] <= 20);
   if (pts.length < 4) { toast('Not enough good GPS points for a perimeter'); return; }
   const frame = makeLocalFrame(pts[0][1], pts[0][0]);
@@ -509,10 +531,10 @@ function trackToPerimeter(track) {
   if (simple.length < 3) { toast('Walk is too straight to make an area'); return; }
   const ring = simple.map(([x, y]) => { const [lat, lng] = frame.toLatLng(x, y); return [lng, lat]; });
   const gap = haversineM(pts[0][1], pts[0][0], pts.at(-1)[1], pts.at(-1)[0]);
-  const hadOne = !!store.state.perimeter;
-  store.change(s => { s.perimeter = ring; });
-  select('perimeter');
-  const msg = `Perimeter made from ${pts.length} points → ${ring.length} corners` +
+  const hadOne = !!store.state.perimeters[tide];
+  store.change(s => { s.perimeters[tide] = ring; });
+  select(perimId(tide));
+  const msg = `${TIDES[tide]} line made from ${pts.length} points → ${ring.length} corners` +
     (gap > 30 ? ` (start and end were ${Math.round(gap)} m apart, joined)` : '') + (hadOne ? '. Replaced the old one.' : '');
   toast(msg, { action: 'Undo', onAction: () => store.undo() });
 }
@@ -567,6 +589,20 @@ function stopPreview() {
 // figure to walk between zones. Same mixer the phone player will use.
 const EPOCH_MS = Date.parse('2026-01-01T00:00:00Z');
 let listening = null;          // { mixer, marker }
+let listenTide = 'low';
+
+// The line that gates the sound: the chosen tide's, or the other if that's all there is.
+function listenRing() {
+  const p = store.state.perimeters;
+  return p[listenTide] || p[otherTide(listenTide)];
+}
+
+function showListenTide() {
+  const p = store.state.perimeters;
+  $('listen-tide').textContent = TIDES[listenTide];
+  $('listen-tide').title = p[listenTide] || !p[otherTide(listenTide)] ? 'Switch tide'
+    : `No ${listenTide}-tide line yet, using the ${otherTide(listenTide)}-tide one`;
+}
 
 async function startListening() {
   stopPreview();
@@ -578,6 +614,7 @@ async function startListening() {
   document.body.classList.add('listening');
   $('btn-listen').classList.add('on');
   $('listenbar').hidden = false;
+  showListenTide();
   $('listen-stats').textContent = 'Click the map to stand there';
   const failed = await syncMixer();
   if (!store.state.zones.some(z => z.audio)) toast('No zones have audio yet. Add some to hear anything.');
@@ -588,7 +625,7 @@ function syncMixer() {
   if (!listening) return [];
   const s = store.state;
   return listening.mixer.setPiece({
-    perimeter: s.perimeter,
+    perimeter: listenRing(),
     zones: s.zones.map(z => ({
       id: z.id, name: z.name, shape: z.shape, audioKey: z.audio?.id || null,
       getBlob: async () => (await audioStore.get(z.audio.id))?.blob,
@@ -611,7 +648,7 @@ function standAt(ll) {
 function showLevels(levels) {
   const m = listening.mixer;
   const audible = levels.filter(l => l.level > 0.001);
-  $('listen-stats').textContent = !m.inPerimeter ? 'Outside the perimeter: silence'
+  $('listen-stats').textContent = !m.inPerimeter ? `Outside the line at ${listenTide} tide: silence`
     : audible.length ? `Hearing ${audible.length} zone${audible.length === 1 ? '' : 's'} · drag to walk`
     : 'Silence here · drag to walk';
   const box = $('listen-levels');
@@ -635,6 +672,13 @@ function stopListening() {
 
 $('btn-listen').addEventListener('click', () => listening ? stopListening() : startListening());
 $('listen-stop').addEventListener('click', stopListening);
+$('listen-tide').addEventListener('click', () => {
+  listenTide = otherTide(listenTide);
+  showListenTide();
+  const p = store.state.perimeters;
+  if (!p[listenTide] && p[otherTide(listenTide)]) toast(`No ${listenTide}-tide line yet, so this sounds the same`);
+  syncMixer();
+});
 
 // ---------- menus ----------
 function closePopovers() { $('main-menu').hidden = true; $('zone-menu').hidden = true; $('imagery-menu').hidden = true; }
@@ -696,7 +740,7 @@ $('main-menu').addEventListener('click', async (e) => {
     basemap.addTo(map);
     e.target.textContent = basemap === satellite ? 'Switch to street map' : 'Switch to satellite';
   }
-  else if (act === 'draw-perimeter') startDraw('Polygon', 'perimeter');
+  else if (act === 'draw-low' || act === 'draw-high') startDraw('Polygon', perimId(act.slice(5)));
   else if (act === 'undo') { if (!store.undo()) toast('Nothing to undo'); }
   else if (act === 'new') {
     // Two taps, so it can't happen by accident.
@@ -766,7 +810,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- start ----------
-// Always open on the framed strand; the perimeter sits inside it.
+// Always open on the framed strand; the tide lines sit inside it.
 function fitAll() { goHome(); }
 
 await store.load();
