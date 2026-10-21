@@ -113,6 +113,9 @@ function render() {
   const s = store.state;
 
   for (const t of s.tracks) {
+    // A walk being recorded starts empty (its live line is drawn separately),
+    // and Leaflet can't place a label on a line with no points.
+    if (t.points.length < 2) continue;
     const line = L.polyline(t.points.map(toLL), { color: getVar('--track'), weight: 2, opacity: 0.8 });
     add(t.id, line, t.name);
   }

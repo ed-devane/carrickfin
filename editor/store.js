@@ -52,8 +52,10 @@ export function emptyState() {
   return { title: 'Untitled piece', perimeters: { low: null, high: null }, tracks: [], pins: [], zones: [] };
 }
 
-// Older saves had one `perimeter`, walked for low tide.
+// Older saves had one `perimeter`, walked for low tide. Walks with under two
+// points are leftovers of a recording that never got going; drop them.
 function upgrade(s) {
+  s.tracks = s.tracks.filter(t => t.points.length >= 2);
   if ('perimeter' in s) {
     s.perimeters = { low: s.perimeter, high: null };
     delete s.perimeter;
